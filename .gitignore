@@ -22,3 +22,4 @@ data/processed/*.pkl
 # OS
 .DS_Store
 Thumbs.db
+data/processed/*.csv
