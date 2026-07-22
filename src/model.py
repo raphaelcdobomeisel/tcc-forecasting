@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     model    = train(train_df, store_id=STORE_ID)
 
-    # Previsao usando o Promo REAL do periodo de teste(para medir acuracia)
+    # Previsao usando o Promo REAL do periodo de teste (para medir acuracia)
     forecast = predict(model, historical=series, periods=42,
                        promo_scenario="historical_pattern")
 

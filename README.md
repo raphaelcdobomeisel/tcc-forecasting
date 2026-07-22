@@ -40,7 +40,7 @@ tcc-forecasting/
 
 ### 1. Clone o repositório
 ```bash
-git clone https://github.com/SEU_USUARIO/tcc-forecasting.git
+git clone https://github.com/raphaelcdobomeisel/tcc-forecasting.git
 cd tcc-forecasting
 ```
 
@@ -88,7 +88,7 @@ streamlit run app/streamlit_app.py
 
 | Ferramenta     | Uso                         |
 |----------------|-----------------------------|
-| Python 3.11    | Linguagem principal          |
+| Python 3.9    | Linguagem principal          |
 | Prophet        | Modelagem de séries temporais|
 | Pandas / NumPy | Tratamento de dados          |
 | Plotly         | Visualizações interativas    |
