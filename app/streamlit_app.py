@@ -106,20 +106,13 @@ with st.sidebar:
     st.markdown("**Modelo:** Prophet + Promo  \n**Dataset:** Rossmann Store Sales  \n**TCC:** Ciência de Dados")
 
 # ── Título ─────────────────────────────────────────────────────
-scenario_label = {
-    "historical_pattern": "padrão histórico",
-    "all_promo": "com promoção",
-    "no_promo": "sem promoção"
-}
+scenario_label = {"historical_pattern": "padrão histórico", "all_promo": "com promoção", "no_promo": "sem promoção"}
 st.title("📈 Previsão de Vendas — Rossmann Stores")
-st.markdown(
-    f"Loja **{store_id}** · Modelo **Prophet + Promo** · "
-    f"{forecast_days} dias · cenário: *{scenario_label[promo_scenario]}*"
-)
+st.markdown(f"Loja **{store_id}** · Modelo **Prophet + Promo** · {forecast_days} dias · cenário: *{scenario_label[promo_scenario]}*")
 st.markdown("---")
 
 # ── Dados e modelo ─────────────────────────────────────────────
-series   = get_store_series(df_all, store_id)
+series   = get_store_series(df_all, store_id)          # ds, y, Promo
 train_df, test_df = train_test_split_temporal(series, test_days=test_days)
 model    = get_or_train_model(store_id, n_rows=len(train_df))
 forecast = predict(model, historical=series, periods=forecast_days,
@@ -141,9 +134,7 @@ c4.metric("📐 MAPE", f"{metrics['MAPE (%)']:.1f}%",
 st.markdown("---")
 
 # ── Abas ───────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🔮 Previsão", "📊 EDA", "🔬 Componentes", "📋 Avaliação"
-])
+tab1, tab2, tab3, tab4 = st.tabs(["🔮 Previsão", "📊 EDA", "🔬 Componentes", "📋 Avaliação"])
 
 # ── TAB 1: PREVISÃO ────────────────────────────────────────────
 with tab1:
@@ -152,31 +143,35 @@ with tab1:
     future_fc = forecast[forecast["ds"] > train_df["ds"].max()]
     fig = go.Figure()
 
+    # Histórico treino
     fig.add_trace(go.Scatter(x=train_df["ds"], y=train_df["y"],
         mode="lines", name="Histórico (treino)",
         line=dict(color="#1f77b4", width=1.2)))
 
+    # Real teste
     if len(test_df):
         fig.add_trace(go.Scatter(x=test_df["ds"], y=test_df["y"],
             mode="lines+markers", name="Real (teste)",
             line=dict(color="#ff7f0e", width=2), marker=dict(size=4)))
 
+    # Intervalo de confiança
     fig.add_trace(go.Scatter(
         x=pd.concat([future_fc["ds"], future_fc["ds"][::-1]]),
         y=pd.concat([future_fc["yhat_upper"], future_fc["yhat_lower"][::-1]]),
         fill="toself", fillcolor="rgba(44,160,44,0.15)",
         line=dict(color="rgba(0,0,0,0)"), name="Intervalo 80%"))
 
+    # Previsão
     fig.add_trace(go.Scatter(x=future_fc["ds"], y=future_fc["yhat"],
         mode="lines", name="Previsão",
         line=dict(color="#2ca02c", width=2.5, dash="dash")))
 
-    # Dias de promoção futura destacados com estrelas
+    # Dias de promoção futura destacados
     promo_days = future_fc[future_fc["Promo"] == 1]
     if len(promo_days):
         fig.add_trace(go.Scatter(x=promo_days["ds"], y=promo_days["yhat"],
             mode="markers", name="Dias com Promoção",
-            marker=dict(color="gold", size=8, symbol="star")))
+            marker=dict(color="gold", size=7, symbol="star")))
 
     fig.add_vline(x=train_df["ds"].max(), line_dash="dot", line_color="gray",
                   annotation_text="início previsão")
@@ -189,7 +184,7 @@ with tab1:
 
     # Tabela com os próximos dias e flag de promo
     st.markdown("#### Próximas previsões")
-    nxt = forecast[forecast["ds"] > series["ds"].max()].head(forecast_days).copy()
+    nxt = forecast[forecast["ds"] > train_df["ds"].max()].head(forecast_days).copy()
     nxt_show = nxt[["ds", "yhat", "yhat_lower", "yhat_upper", "Promo"]].copy()
     nxt_show.columns = ["Data", "Previsão (€)", "Mín 80%", "Máx 80%", "Promo?"]
     nxt_show["Data"] = nxt_show["Data"].dt.strftime("%d/%m/%Y")
@@ -198,37 +193,30 @@ with tab1:
     nxt_show["Promo?"] = nxt_show["Promo?"].map({1: "✅ Sim", 0: "—"})
     st.dataframe(nxt_show, use_container_width=True, hide_index=True)
 
-    # Comparação dos 3 cenários de Promo
+    # Comparação de cenários de Promo
     st.markdown("#### 📊 Comparação de cenários de promoção")
-    fc_all  = predict(model, historical=series, periods=forecast_days,
-                      promo_scenario="all_promo")
-    fc_none = predict(model, historical=series, periods=forecast_days,
-                      promo_scenario="no_promo")
-    fc_hist = predict(model, historical=series, periods=forecast_days,
-                      promo_scenario="historical_pattern")
+    fc_all  = predict(model, historical=series, periods=forecast_days, promo_scenario="all_promo")
+    fc_none = predict(model, historical=series, periods=forecast_days, promo_scenario="no_promo")
+    fc_hist = predict(model, historical=series, periods=forecast_days, promo_scenario="historical_pattern")
 
-    future_all  = fc_all[fc_all["ds"]   > series["ds"].max()]
-    future_none = fc_none[fc_none["ds"] > series["ds"].max()]
-    future_hist = fc_hist[fc_hist["ds"] > series["ds"].max()]
+    future_all  = fc_all[fc_all["ds"] > train_df["ds"].max()]
+    future_none = fc_none[fc_none["ds"] > train_df["ds"].max()]
+    future_hist = fc_hist[fc_hist["ds"] > train_df["ds"].max()]
 
     fig_comp = go.Figure()
     fig_comp.add_trace(go.Scatter(x=future_all["ds"],  y=future_all["yhat"],
-        mode="lines", name="🟢 Com Promoção total",
-        line=dict(color="green", width=2)))
+        mode="lines", name="🟢 Com Promoção total", line=dict(color="green", width=2)))
     fig_comp.add_trace(go.Scatter(x=future_hist["ds"], y=future_hist["yhat"],
-        mode="lines", name="📊 Padrão histórico",
-        line=dict(color="orange", width=2, dash="dot")))
+        mode="lines", name="📊 Padrão histórico",   line=dict(color="orange", width=2, dash="dot")))
     fig_comp.add_trace(go.Scatter(x=future_none["ds"], y=future_none["yhat"],
-        mode="lines", name="🔴 Sem Promoção",
-        line=dict(color="red", width=2, dash="dash")))
-    fig_comp.update_layout(
-        title="Impacto da Promoção na Previsão — 3 Cenários",
+        mode="lines", name="🔴 Sem Promoção",        line=dict(color="red", width=2, dash="dash")))
+    fig_comp.update_layout(title="Impacto da Promoção na Previsão — 3 Cenários",
         xaxis_title="Data", yaxis_title="Vendas (€)",
         hovermode="x unified", height=380, template="plotly_white",
-        legend=dict(orientation="h", y=1.05)
-    )
+        legend=dict(orientation="h", y=1.05))
     st.plotly_chart(fig_comp, use_container_width=True)
 
+    # Uplift estimado
     uplift = (future_all["yhat"].mean() / future_none["yhat"].mean() - 1) * 100
     st.success(f"📈 Uplift estimado da promoção: **+{uplift:.1f}%** nas vendas médias previstas.")
 
@@ -246,8 +234,7 @@ with tab2:
         fig_dow = px.bar(dow, x="DayOfWeek", y="Sales",
             title="Vendas Médias por Dia da Semana",
             labels={"DayOfWeek":"","Sales":"Vendas (€)"},
-            color="Sales", color_continuous_scale="Blues",
-            template="plotly_white")
+            color="Sales", color_continuous_scale="Blues", template="plotly_white")
         fig_dow.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_dow, use_container_width=True)
 
@@ -259,23 +246,21 @@ with tab2:
         fig_mon = px.bar(mon, x="Month", y="Sales",
             title="Vendas Médias por Mês",
             labels={"Month":"","Sales":"Vendas (€)"},
-            color="Sales", color_continuous_scale="Greens",
-            template="plotly_white")
+            color="Sales", color_continuous_scale="Greens", template="plotly_white")
         fig_mon.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_mon, use_container_width=True)
 
     # Impacto da promoção
     promo_avg = store_full.groupby("Promo")["Sales"].mean().reset_index()
-    promo_avg["Promo"] = promo_avg["Promo"].map({0:"Sem Promoção", 1:"Com Promoção"})
+    promo_avg["Promo"] = promo_avg["Promo"].map({0: "Sem Promoção", 1: "Com Promoção"})
     fig_promo = px.bar(promo_avg, x="Promo", y="Sales",
         title="Impacto da Promoção nas Vendas Médias",
         labels={"Promo":"","Sales":"Vendas Médias (€)"},
-        color="Promo",
-        color_discrete_map={"Sem Promoção":"#d62728","Com Promoção":"#2ca02c"},
+        color="Promo", color_discrete_map={"Sem Promoção":"#d62728","Com Promoção":"#2ca02c"},
         template="plotly_white")
     st.plotly_chart(fig_promo, use_container_width=True)
 
-    # Distribuição
+    # Distribuição de vendas
     fig_hist = px.histogram(series, x="y", nbins=60,
         title="Distribuição das Vendas Diárias",
         labels={"y":"Vendas (€)"},
@@ -289,8 +274,7 @@ with tab2:
     monthly_avg["mes"] = monthly_avg["mes"].dt.to_timestamp()
     fig_trend = px.line(monthly_avg, x="mes", y="y",
         title="Tendência — Média Mensal de Vendas",
-        labels={"mes":"Data","y":"Vendas Médias (€)"},
-        template="plotly_white")
+        labels={"mes":"Data","y":"Vendas Médias (€)"}, template="plotly_white")
     st.plotly_chart(fig_trend, use_container_width=True)
 
 
@@ -302,20 +286,19 @@ with tab3:
         "**sazonalidade anual** e **efeito da Promoção**."
     )
     future_full = model.make_future_dataframe(periods=forecast_days, freq="D")
-    promo_map   = series.set_index("ds")["Promo"].to_dict()
+    # Preenche Promo para o plot de componentes (usa padrão histórico)
+    promo_map = series.set_index("ds")["Promo"].to_dict()
     future_full["Promo"] = future_full["ds"].map(promo_map)
-    store_copy  = series.copy()
+    store_copy = series.copy()
     store_copy["weekday"] = store_copy["ds"].dt.weekday
     rate = store_copy.groupby("weekday")["Promo"].mean()
     mask = future_full["Promo"].isna()
-    future_full.loc[mask, "Promo"] = (
-        future_full.loc[mask, "ds"].dt.weekday.map(rate).fillna(0).round()
-    )
+    future_full.loc[mask, "Promo"] = future_full.loc[mask, "ds"].dt.weekday.map(rate).fillna(0).round()
     future_full["Promo"] = future_full["Promo"].fillna(0).astype(int)
 
     forecast_full = model.predict(future_full)
-    fig_comp_plot = model.plot_components(forecast_full)
-    st.pyplot(fig_comp_plot, use_container_width=True)
+    fig_comp = model.plot_components(forecast_full)
+    st.pyplot(fig_comp, use_container_width=True)
     st.info(
         "💡 O componente **'Promo'** mostra o uplift médio de vendas nos dias com promoção. "
         "Valores positivos = aquele fator impulsiona vendas."
@@ -345,17 +328,15 @@ with tab4:
         color="MAPE (%)", color_continuous_scale="RdYlGn_r",
         template="plotly_white", text="MAPE (%)")
     fig_bar.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
-    fig_bar.update_layout(coloraxis_showscale=False, height=380)
+    fig_bar.update_layout(coloraxis_showscale=False)
     st.plotly_chart(fig_bar, use_container_width=True)
 
     if len(test_merged):
         fig_eval = go.Figure()
         fig_eval.add_trace(go.Scatter(x=test_merged["ds"], y=test_merged["y"],
-            mode="lines+markers", name="Real",
-            line=dict(color="#ff7f0e", width=2)))
+            mode="lines+markers", name="Real", line=dict(color="#ff7f0e", width=2)))
         fig_eval.add_trace(go.Scatter(x=test_merged["ds"], y=test_merged["yhat"],
-            mode="lines+markers", name="Previsto (com Promo)",
-            line=dict(color="#2ca02c", width=2, dash="dash")))
+            mode="lines+markers", name="Previsto (Promo)", line=dict(color="#2ca02c", width=2, dash="dash")))
         fig_eval.update_layout(
             title=f"Real vs Previsto — {test_days} dias de teste",
             xaxis_title="Data", yaxis_title="Vendas (€)",
@@ -366,8 +347,7 @@ with tab4:
         fig_res = px.bar(test_merged, x="ds", y="Resíduo",
             title="Resíduos (Real − Previsto)",
             labels={"ds":"Data","Resíduo":"€"},
-            color="Resíduo",
-            color_continuous_scale=["#d62728","#aec7e8","#2ca02c"],
+            color="Resíduo", color_continuous_scale=["#d62728","#aec7e8","#2ca02c"],
             template="plotly_white")
         fig_res.add_hline(y=0, line_dash="dot")
         st.plotly_chart(fig_res, use_container_width=True)
