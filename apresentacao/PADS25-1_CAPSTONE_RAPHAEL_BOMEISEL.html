@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Capstone — Previsão de Vendas com Prophet</title>
+
+<!-- Reveal.js CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css" />
+<!-- Highlight.js para código -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+
+<!-- Fonte clássica serifada para títulos + sans limpa para corpo -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+
+<style>
+  /* ── Paleta clássica: azul-marinho, cinza, dourado discreto ── */
+  :root {
+    --navy:    #1f3a5f;   /* azul-marinho — títulos */
+    --navy2:   #2c4d78;   /* azul médio */
+    --gold:    #a67c26;   /* dourado sóbrio — destaques */
+    --gray:    #4a4a4a;   /* texto corpo */
+    --gray-l:  #6f6f6f;   /* texto secundário */
+    --line:    #d9dee5;   /* bordas suaves */
+    --bg-card: #f5f6f8;   /* fundo de card */
+    --green:   #2e7d32;
+    --red:     #b23a2e;
+    --radius:  6px;
+  }
+
+  .reveal { font-family: 'Source Sans 3', 'Segoe UI', Arial, sans-serif; color: var(--gray); }
+  .reveal h1 { font-family: 'Merriweather', Georgia, serif; font-size: 1.35em; color: var(--navy); font-weight: 700; }
+  .reveal h2 { font-family: 'Merriweather', Georgia, serif; font-size: 0.95em; color: var(--navy); font-weight: 700;
+               border-bottom: 2px solid var(--gold); padding-bottom: 6px; margin-bottom: 18px; }
+  .reveal h3 { font-size: 0.72em; color: var(--navy2); font-weight: 600; text-transform: none; margin-bottom: 8px; }
+  .reveal p, .reveal li { font-size: 0.6em; line-height: 1.5; color: var(--gray); }
+  .reveal ul { list-style: none; padding: 0; margin: 4px 0; }
+  .reveal ul li { margin: 4px 0; }
+  .reveal ul li::before { content: "— "; color: var(--gold); }
+  .reveal section { text-align: left; }
+  .reveal code { color: var(--navy2); background: var(--bg-card); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .reveal em { color: var(--gray-l); }
+  .reveal strong { color: var(--navy); }
+
+  /* ── Slide de capa ──────────────────────────────────────── */
+  .cover { text-align: center !important; }
+  .cover h1 { font-size: 1.25em; margin-bottom: 8px; line-height: 1.35; }
+  .cover .subtitle { font-size: 0.62em; color: var(--gray-l); margin: 4px 0; }
+  .cover .author { font-family: 'Merriweather', serif; font-size: 0.8em; color: var(--gold); font-weight: bold; margin-top: 24px; }
+  .cover .meta { font-size: 0.55em; color: var(--gray-l); margin-top: 5px; }
+  .cover .badge { display: inline-block; background: var(--navy); color: #fff; border-radius: 3px;
+                  padding: 3px 12px; font-size: 0.5em; font-weight: 600; margin: 3px; letter-spacing: 0.5px; }
+  .cover .badge.gold { background: var(--gold); }
+
+  /* ── Cards ──────────────────────────────────────────────── */
+  .cards { display: flex; gap: 14px; flex-wrap: wrap; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--navy);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    flex: 1;
+    min-width: 170px;
+  }
+  .card .card-title { font-size: 0.56em; color: var(--navy); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .card p, .card li { font-size: 0.58em; }
+
+  /* ── Métricas highlight ─────────────────────────────────── */
+  .metric-row { display: flex; gap: 12px; margin: 14px 0; flex-wrap: wrap; }
+  .metric-box {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--navy);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+  }
+  .metric-box .val { font-family: 'Merriweather', serif; font-size: 1.25em; font-weight: bold; color: var(--navy); }
+  .metric-box .lbl { font-size: 0.5em; color: var(--gray-l); margin-top: 3px; }
+  .metric-box.green  { border-left-color: var(--green); }
+  .metric-box.green .val { color: var(--green); }
+  .metric-box.gold   { border-left-color: var(--gold); }
+  .metric-box.gold .val  { color: var(--gold); }
+
+  /* ── Tabelas ────────────────────────────────────────────── */
+  .reveal table { width: 100%; border-collapse: collapse; font-size: 0.55em; margin: 0; }
+  .reveal table th { background: var(--navy); color: #fff; padding: 6px 10px; text-align: left; font-weight: 600; }
+  .reveal table td { padding: 5px 10px; border-bottom: 1px solid var(--line); color: var(--gray); }
+  .reveal table tr:nth-child(even) td { background: var(--bg-card); }
+  .win  { color: var(--green); font-weight: 600; }
+  .lose { color: var(--red); }
+  .neu  { color: var(--gold); }
+
+  /* ── Código ─────────────────────────────────────────────── */
+  .reveal pre { font-size: 0.5em; border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); width: 100%; }
+  .reveal pre code { padding: 12px; }
+
+  /* ── Callout / insight box ──────────────────────────────── */
+  .insight {
+    background: var(--bg-card);
+    border-left: 3px solid var(--green);
+    border-radius: 4px;
+    padding: 9px 14px;
+    margin: 12px 0;
+    font-size: 0.6em;
+    color: var(--gray);
+  }
+  .insight strong { color: var(--navy); }
+  .insight.warn { border-left-color: var(--red); }
+  .insight.info { border-left-color: var(--navy2); }
+
+  /* ── 2 colunas ──────────────────────────────────────────── */
+  .cols { display: flex; gap: 22px; align-items: flex-start; }
+  .cols > * { flex: 1; }
+
+  /* ── Timeline ───────────────────────────────────────────── */
+  .timeline { border-left: 2px solid var(--navy); padding-left: 16px; }
+  .timeline .step { margin: 11px 0; position: relative; }
+  .timeline .step::before { content: "●"; color: var(--gold); font-size: 0.7em; position: absolute; left: -21px; top: 2px; }
+  .timeline .step .t-title { font-size: 0.62em; font-weight: 600; color: var(--navy); }
+  .timeline .step .t-desc  { font-size: 0.56em; color: var(--gray-l); margin-top: 2px; }
+
+  /* ── Slide número ───────────────────────────────────────── */
+  .slide-num { font-size: 0.42em; color: #b0b6bf; position: absolute; top: 6px; right: 12px; }
+
+  /* ── Demo slide ─────────────────────────────────────────── */
+  .demo-box {
+    text-align: center;
+    border: 2px dashed var(--gold);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin: 16px auto;
+    max-width: 640px;
+    background: var(--bg-card);
+  }
+  .demo-box .demo-icon { font-size: 1.8em; }
+  .demo-box .demo-title { font-family: 'Merriweather', serif; font-size: 0.72em; color: var(--gold); font-weight: bold; margin: 8px 0 6px; }
+  .demo-box .demo-steps { font-size: 0.58em; color: var(--gray); text-align: left; display: inline-block; margin-top: 8px; }
+  .demo-box .demo-steps p { font-size: 1em; margin: 5px 0; }
+
+  /* ── Número do slide (reveal) ───────────────────────────── */
+  .reveal .slide-number { color: #b0b6bf !important; font-size: 12px !important; background: transparent !important; }
+
+  /* ── Progress bar ───────────────────────────────────────── */
+  .reveal .progress { color: var(--gold); height: 3px; }
+</style>
+</head>
+
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 1 — CAPA
+════════════════════════════════════════════════════════════ -->
+<section class="cover">
+  <div style="margin-bottom:16px">
+    <span class="badge">Capstone — Ciência de Dados</span>
+    <span class="badge gold">2026</span>
+  </div>
+
+  <h1>Previsão de Vendas no Varejo<br>com Modelos de Séries Temporais</h1>
+  <p class="subtitle">Rossmann Drugstore Sales · Meta Prophet · Dashboard Streamlit</p>
+
+  <p class="author">Raphael Bomeisel</p>
+  <p class="meta">Ciência de Dados · Programa Avançado em Data Science e Decisão | Insper · Julho 2026</p>
+
+  <div style="margin-top: 30px; font-size:0.5em; color:#b0b6bf">
+    <span>github.com/raphaelcdobomeisel/tcc-forecasting</span>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 2 — O PROBLEMA
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">2 / 14</span>
+  <h2>O Problema: Prever Vendas no Varejo</h2>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Estoque</div>
+      <p>Excesso → capital parado.<br>Falta → venda perdida.<br>Prever bem = ponto de reorder certo.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Pessoal</div>
+      <p>Escalar equipe com precisão: pico de feriado vs. dia normal requer planejamento com antecedência.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Caixa</div>
+      <p>Fluxo de caixa depende da receita esperada. Erros na previsão comprometem compras e contratos.</p>
+    </div>
+  </div>
+
+  <div class="insight gold" style="margin-top:16px; margin-bottom:4px">
+    <strong>Contexto pessoal:</strong> atuando como Account Manager em um negócio de DaaS (Delivery as a Service), ter a previsibilidade de volume de vendas das lojas ajuda a <strong>dimensionar o tamanho das oportunidades</strong>, antecipa stress no supply (entregadores) e serve como base para <strong>discutir alocação de recursos</strong> — além de outras decisões críticas do dia a dia.
+  </div>
+
+  <div class="insight info" style="margin-top:8px">
+    <strong>Desafio central:</strong> vendas no varejo carregam sazonalidade semanal, anual, efeito de promoções, feriados e concorrência — todos interagindo ao mesmo tempo.
+  </div>
+
+  <p style="margin-top:14px; color:var(--gray-l)">
+    Este trabalho aborda esse desafio com um modelo probabilístico aditivo e um dashboard interativo de suporte à decisão.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 3 — OBJETIVO & ESCOPO
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">3 / 14</span>
+  <h2>Objetivo &amp; Escopo</h2>
+
+  <div class="cols">
+    <div>
+      <h3>O que este trabalho faz</h3>
+      <ul>
+        <li>Previsão de vendas diárias por loja (horizonte 6 semanas)</li>
+        <li>Identificação e quantificação do efeito de promoções</li>
+        <li>Experimentos comparativos para seleção de hiperparâmetros</li>
+        <li>Dashboard Streamlit com cenários <em>what-if</em> (com/sem promoção)</li>
+        <li>Pipeline reprodutível end-to-end (dados → modelo → visualização)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Fora do escopo</h3>
+      <ul>
+        <li>Otimização de estoque ou logística</li>
+        <li>Previsão por SKU / categoria de produto</li>
+        <li>Modelos de deep learning (LSTM, N-HiTS)</li>
+        <li>Deploy em produção / integração ERP</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="insight" style="margin-top:20px">
+    <strong>Objetivo final:</strong> gerar previsões com MAPE &lt; 10% e uma ferramenta de simulação de cenários acessível a gestores de loja.
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 4 — OS DADOS
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">4 / 14</span>
+  <h2>Os Dados — Rossmann Store Sales (Kaggle)</h2>
+
+  <div class="metric-row">
+    <div class="metric-box">
+      <div class="val">1M+</div>
+      <div class="lbl">Registros de vendas</div>
+    </div>
+    <div class="metric-box">
+      <div class="val">1.115</div>
+      <div class="lbl">Lojas alemãs</div>
+    </div>
+    <div class="metric-box">
+      <div class="val">3 anos</div>
+      <div class="lbl">Jan 2013 → Jul 2015</div>
+    </div>
+    <div class="metric-box gold">
+      <div class="val">Público</div>
+      <div class="lbl">Dataset aberto</div>
+    </div>
+  </div>
+
+  <div class="cards" style="margin-top:12px">
+    <div class="card">
+      <div class="card-title">Variáveis de vendas</div>
+      <ul>
+        <li><strong>Sales</strong> — receita diária (€)</li>
+        <li><strong>Customers</strong> — visitas por dia</li>
+        <li><strong>Open</strong> — loja aberta (0/1)</li>
+        <li><strong>Promo</strong> — promoção ativa (0/1)</li>
+        <li><strong>StateHoliday</strong> — tipo de feriado</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Variáveis de loja</div>
+      <ul>
+        <li><strong>StoreType</strong> — a/b/c/d</li>
+        <li><strong>Assortment</strong> — mix de produtos</li>
+        <li><strong>CompetitionDistance</strong> — distância ao concorrente (m)</li>
+        <li><strong>Promo2</strong> — promoção recorrente</li>
+        <li><strong>SchoolHoliday</strong> — férias escolares</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="color:var(--gray-l); margin-top:12px">
+    Pré-processamento: remoção de dias com loja fechada (Open=0) e Sales=0; preenchimento de NaNs; engenharia de features de data; log-transformação de vendas para análise exploratória.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 5 — DECISÃO DE MODELO: BSTS → PROPHET
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">5 / 14</span>
+  <h2>Decisão de Modelo: BSTS → Prophet</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Critério</th>
+        <th>BSTS (R / bsts)</th>
+        <th>Prophet (Python)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Linguagem</td>
+        <td class="lose">R (requer bridge Python↔R)</td>
+        <td class="win">Python nativo</td>
+      </tr>
+      <tr>
+        <td>Inferência</td>
+        <td class="lose">MCMC — lento, difícil de tunar</td>
+        <td class="win">MAP (Stan) — rápido</td>
+      </tr>
+      <tr>
+        <td>Feriados / Regressores</td>
+        <td class="neu">Manual (spike &amp; slab)</td>
+        <td class="win">Nativo (<code>holidays</code>, <code>add_regressor</code>)</td>
+      </tr>
+      <tr>
+        <td>Integração Streamlit</td>
+        <td class="lose">Complexa (rpy2 instável)</td>
+        <td class="win">pip install prophet</td>
+      </tr>
+      <tr>
+        <td>Interpretabilidade</td>
+        <td class="neu">Alta (posterior completo)</td>
+        <td class="win">Alta (componentes aditivos)</td>
+      </tr>
+      <tr>
+        <td>Curva de aprendizado</td>
+        <td class="lose">Alta</td>
+        <td class="win">Moderada</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight" style="margin-top:16px">
+    <strong>Escolha:</strong> Prophet atende todos os critérios com menor fricção operacional, sem perda de interpretabilidade — essencial para um projeto com prazo definido.
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 6 — EDA
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">6 / 14</span>
+  <h2>Análise Exploratória — O que os Dados Revelam</h2>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Sazonalidade Semanal</div>
+      <p>Segunda e quinta lideraram vendas; domingo zerado (lojas fechadas). Amplitude real de <strong>~720 €/dia</strong> entre pico e vale semanal.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Sazonalidade Anual</div>
+      <p>Pico de Natal (dez), queda em jan, recuperação em abr (Páscoa). Padrão estável nos 3 anos da série.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Efeito Promoção</div>
+      <p>Dias com <code>Promo=1</code> apresentam vendas <strong>~20-25% maiores</strong> em média versus dias sem promoção — sinal claro para o modelo.</p>
+    </div>
+  </div>
+
+  <div class="insight info" style="margin-top:16px">
+    <strong>Implicação metodológica:</strong> o modelo precisa capturar sazonalidade semanal precisa E incorporar Promo como regressor externo — sazonalidade sozinha não é suficiente.
+  </div>
+
+  <p style="color:var(--gray-l); margin-top:8px">
+    EDA completo: <code>notebooks/01_eda.ipynb</code> — distribuição de Sales, boxplots por dia da semana, heatmap de correlação, decomposição de tendência.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 7 — METODOLOGIA
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">7 / 14</span>
+  <h2>Metodologia de Avaliação</h2>
+
+  <div class="cols">
+    <div>
+      <h3>Split Temporal (Hold-out)</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="t-title">Treino — Jan 2013 a Jun 2015</div>
+          <div class="t-desc">~850 dias por loja. Modelo aprende tendência, sazonalidades e efeitos de feriados.</div>
+        </div>
+        <div class="step">
+          <div class="t-title">Teste — últimos 42 dias (6 semanas)</div>
+          <div class="t-desc">Dados nunca vistos pelo modelo. Avalia capacidade de generalização real.</div>
+        </div>
+      </div>
+
+      <div class="insight warn" style="margin-top:12px">
+        <strong>Por que não cross-validation?</strong> Séries temporais violam a hipótese de i.i.d. — validação cruzada clássica contamina o futuro no passado. Hold-out temporal é o método correto.
+      </div>
+    </div>
+
+    <div>
+      <h3>Métricas</h3>
+      <div style="margin-bottom:10px">
+        <p style="color:var(--gold); margin-bottom:2px"><strong style="color:var(--gold)">MAE</strong> — Erro Médio Absoluto</p>
+        <p style="color:var(--gray-l)">Interpretável em €. Média das diferenças absolutas.</p>
+      </div>
+      <div style="margin-bottom:10px">
+        <p style="color:var(--gold); margin-bottom:2px"><strong style="color:var(--gold)">RMSE</strong> — Raiz do Erro Quadrático Médio</p>
+        <p style="color:var(--gray-l)">Penaliza erros grandes. Útil para detectar outliers de previsão.</p>
+      </div>
+      <div>
+        <p style="color:var(--gold); margin-bottom:2px"><strong style="color:var(--gold)">MAPE</strong> — Erro Percentual Médio Absoluto ★</p>
+        <p style="color:var(--gray-l)"><strong>Métrica principal.</strong> Independente de escala — comparável entre lojas de tamanhos diferentes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 8 — EXPERIMENTO 1: SAZONALIDADE
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">8 / 14</span>
+  <h2>Experimento 1 — Captura de Sazonalidade Semanal</h2>
+
+  <p style="color:var(--gray); margin-bottom:12px">
+    <strong>Problema observado:</strong> a previsão do modelo inicial era quase plana — sem variação semanal visível, apesar do padrão real de ±720 €/dia.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Config</th><th>Modo</th><th>MAPE</th><th>AmpSemanal (€)</th><th>Amp. Real (€)</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>A — baseline</td>
+        <td class="lose">multiplicativo</td>
+        <td>16.23%</td>
+        <td class="lose" style="font-weight:bold">0</td>
+        <td>720</td>
+      </tr>
+      <tr>
+        <td>B — seasonality_prior_scale=20</td>
+        <td class="lose">multiplicativo</td>
+        <td>15.89%</td>
+        <td class="lose">0</td>
+        <td>720</td>
+      </tr>
+      <tr>
+        <td>C — additive, Fourier=3</td>
+        <td class="win">aditivo</td>
+        <td>15.47%</td>
+        <td class="neu">612</td>
+        <td>720</td>
+      </tr>
+      <tr>
+        <td>D — additive, Fourier=6</td>
+        <td class="win">aditivo</td>
+        <td>15.51%</td>
+        <td class="neu">598</td>
+        <td>720</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight warn" style="margin-top:14px">
+    <strong>Descoberta crítica:</strong> o modo <code>multiplicativo</code> zerou completamente a amplitude semanal (0 €). O efeito aditivo é o correto para esta série — sazonalidade sobreposta à tendência, não proporcional a ela. Fourier maior não ajudou (sinal de parsimônia adequada).
+  </div>
+
+  <div class="insight" style="margin-top:8px">
+    <strong>Decisão:</strong> fixar <code>seasonality_mode="additive"</code>. MAPE melhorou mas ainda estava em 15.47% — abaixo do objetivo de &lt;10%.
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 9 — EXPERIMENTO 2: REGRESSOR PROMO
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">9 / 14</span>
+  <h2>Experimento 2 — Regressor de Promoção</h2>
+
+  <p style="color:var(--gray); margin-bottom:12px">
+    Hipótese: a variável <code>Promo</code> (0/1) carrega informação causal que a sazonalidade não consegue capturar — dias de promoção têm padrão diferente dos dias normais do mesmo dia da semana.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Config</th><th>Fourier</th><th>Promo</th><th>MAPE</th><th>AmpSemanal (€)</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>A — base (sem Promo)</td>
+        <td>3</td>
+        <td class="lose">✗</td>
+        <td class="lose">15.47%</td>
+        <td>612</td>
+      </tr>
+      <tr>
+        <td>B — F=6</td>
+        <td>6</td>
+        <td class="lose">✗</td>
+        <td class="lose">15.51%</td>
+        <td>598</td>
+      </tr>
+      <tr>
+        <td>C — F=10</td>
+        <td>10</td>
+        <td class="lose">✗</td>
+        <td class="lose">15.62%</td>
+        <td>581</td>
+      </tr>
+      <tr>
+        <td>D — F=10, sps=20</td>
+        <td>10</td>
+        <td class="lose">✗</td>
+        <td class="lose">15.44%</td>
+        <td>604</td>
+      </tr>
+      <tr>
+        <td><strong>E — base + PROMO</strong></td>
+        <td>3</td>
+        <td class="win">✓</td>
+        <td class="win"><strong>7.54%</strong></td>
+        <td>698</td>
+      </tr>
+      <tr>
+        <td>F — F=10 + PROMO</td>
+        <td>10</td>
+        <td class="win">✓</td>
+        <td class="win">7.61%</td>
+        <td>701</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight" style="margin-top:12px">
+    <strong>Resultado:</strong> adicionar <code>model.add_regressor("Promo")</code> reduziu o MAPE de <span class="lose">15.47%</span> para <span class="win">7.54%</span> — queda de <strong>51%</strong> no erro. Nenhum tuning de Fourier ou prior chegou perto. Fourier=10 + Promo não venceu Fourier=3 + Promo → princípio da parcimônia confirmado.
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 10 — RESULTADO FINAL
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">10 / 14</span>
+  <h2>Resultado Final do Modelo</h2>
+
+  <div class="cols">
+    <div>
+      <h3>Configuração Final</h3>
+      <pre><code class="language-python">Prophet(
+  seasonality_mode  = "additive",
+  yearly_seasonality = True,
+  weekly_seasonality = True,
+  holidays           = GERMAN_HOLIDAYS,
+  changepoint_prior_scale  = 0.05,
+  seasonality_prior_scale  = 10.0
+)
+model.add_regressor("Promo")</code></pre>
+
+      <div style="margin-top:14px">
+        <h3>Dois cenários de MAPE</h3>
+        <div class="metric-row">
+          <div class="metric-box green" style="min-width:0">
+            <div class="val">7.54%</div>
+            <div class="lbl">Promo futura conhecida<br><em>(teto teórico)</em></div>
+          </div>
+          <div class="metric-box gold" style="min-width:0">
+            <div class="val">8.84%</div>
+            <div class="lbl">Promo estimada<br><em>(cenário realista)</em></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3>Métricas — Loja 1, 42 dias de teste</h3>
+      <div class="metric-row" style="flex-wrap:wrap">
+        <div class="metric-box green">
+          <div class="val">8.84%</div>
+          <div class="lbl">MAPE (realista)</div>
+        </div>
+        <div class="metric-box">
+          <div class="val">~480€</div>
+          <div class="lbl">MAE médio/dia</div>
+        </div>
+      </div>
+
+      <div class="insight" style="margin-top:12px">
+        MAPE &lt; 10% — objetivo atingido.<br>
+        A diferença entre 7.54% e 8.84% quantifica o <strong>valor da informação de promoção antecipada</strong> para o gestor de loja.
+      </div>
+
+      <div class="insight info" style="margin-top:8px">
+        <strong>Contexto:</strong> MAPE de 8.84% é competitivo para séries de varejo diário com feriados e promoções. Benchmarks de competição Kaggle para a mesma base variam de 7% a 12%.
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 11 — DEMO AO VIVO
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">11 / 14</span>
+  <h2>Dashboard — Demonstração ao Vivo</h2>
+
+  <div class="demo-box">
+    <div class="demo-icon">🖥️</div>
+    <div class="demo-title">Abrindo Streamlit agora…</div>
+    <div class="demo-steps">
+      <p><strong>O que vamos ver:</strong></p>
+      <p>1. <strong>Aba Previsão</strong> — selecionar loja, horizonte 42 dias, cenário what-if</p>
+      <p>2. <strong>Comparar cenários</strong> — histórico vs. tudo-promo vs. sem-promo → uplift %</p>
+      <p>3. <strong>Aba EDA</strong> — sazonalidade semanal, distribuição de vendas</p>
+      <p>4. <strong>Aba Avaliação</strong> — métricas do modelo, previsto vs. real</p>
+    </div>
+  </div>
+
+  <p style="color:var(--gray-l); text-align:center; margin-top:8px">
+    Inicialização: <code>streamlit run app/streamlit_app.py</code>
+  </p>
+
+  <div class="insight info" style="margin-top:8px">
+    <strong>Funcionalidade central:</strong> o gestor de loja pode simular "o que acontece se eu aplicar promoção todos os dias do próximo mês?" e ver a previsão de receita incremental — sem nenhum conhecimento técnico.
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 12 — CONCLUSÕES
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">12 / 14</span>
+  <h2>Conclusões &amp; Próximos Passos</h2>
+
+  <div class="cols">
+    <div>
+      <h3>O que funcionou</h3>
+      <ul>
+        <li>Prophet com modo aditivo capturou corretamente a sazonalidade semanal (amplitude 698 € vs. real 720 €)</li>
+        <li>Regressor <code>Promo</code> foi o maior driver de precisão — redução de 51% no MAPE</li>
+        <li>Princípio da parcimônia confirmado: Fourier=3 &gt; Fourier=10 (sem overfit)</li>
+        <li>Pipeline reprodutível: dados brutos → limpeza → modelo → dashboard em &lt;5 min</li>
+        <li>MAPE 8.84% competitivo com benchmarks da competição Kaggle</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Limitações</h3>
+      <ul>
+        <li>Modelo treinado por loja — escala requer paralelismo</li>
+        <li>Promo futura precisa ser informada manualmente (não prevista)</li>
+        <li>SchoolHoliday não foi incluído como regressor (próxima iteração)</li>
+        <li>Avaliação em uma loja — generalização para 1.115 não testada</li>
+      </ul>
+
+      <h3 style="margin-top:14px">Próximos Passos</h3>
+      <ul>
+        <li>Adicionar <code>SchoolHoliday</code> como regressor externo</li>
+        <li>Validação cruzada temporal (<code>cross_validation</code> do Prophet)</li>
+        <li>Deploy no Streamlit Cloud (gratuito, público)</li>
+        <li>Comparação com baseline naïve (média histórica)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 13 — PRÓXIMOS PASSOS
+════════════════════════════════════════════════════════════ -->
+<section>
+  <span class="slide-num">13 / 14</span>
+  <h2>Próximos Passos — Caminhos de Evolução</h2>
+
+  <div class="cols">
+    <div>
+      <h3>Escala &amp; Performance</h3>
+      <ul>
+        <li><strong>Paralelismo com joblib/multiprocessing</strong> — treinar os 1.115 modelos simultaneamente em múltiplos CPUs; tempo estimado: de horas para minutos</li>
+        <li><strong>Cache em disco por loja</strong> — salvar cada modelo treinado em <code>.pkl</code> para reutilização no dashboard sem re-treinamento</li>
+        <li><strong>Deploy no Streamlit Cloud</strong> — publicar o dashboard gratuitamente com acesso público via URL</li>
+      </ul>
+
+      <h3 style="margin-top:16px">Qualidade do Modelo</h3>
+      <ul>
+        <li><strong>SchoolHoliday como regressor</strong> — férias escolares afetam o fluxo de clientes; próxima variável mais promissora após Promo</li>
+        <li><strong>Validação cruzada temporal</strong> — usar <code>cross_validation()</code> do Prophet (rolling-origin) para avaliação mais robusta que o hold-out único</li>
+        <li><strong>Baseline naïve</strong> — comparar com média histórica por dia da semana para quantificar o ganho real do modelo</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Segmentação &amp; Personalização</h3>
+      <ul>
+        <li><strong>Análise comparativa entre lojas</strong> — distribuição de MAPE pelas 1.115 lojas: quais erram mais? Por quê?</li>
+        <li><strong>Clusterização de lojas</strong> — usar K-Means ou modelos de mistura gaussiana sobre features (StoreType, Assortment, CompetitionDistance, padrão de promoção) para agrupar lojas com comportamento similar</li>
+        <li><strong>Modelos por cluster</strong> — em vez de 1.115 modelos idênticos, treinar um modelo por grupo com hiperparâmetros otimizados para aquele perfil de loja</li>
+        <li><strong>Modelo global com LightGBM</strong> — alternativa: um único modelo que aprende de todas as lojas ao mesmo tempo, com features de data + loja como entrada</li>
+      </ul>
+
+      <div class="insight info" style="margin-top:12px">
+        <strong>Hierarquia de complexidade:</strong><br>
+        1 modelo (Loja 1) → 1.115 modelos em paralelo → clusters → modelo global
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 14 — OBRIGADO
+════════════════════════════════════════════════════════════ -->
+<section class="cover">
+  <span class="slide-num">14 / 14</span>
+
+  <h1 style="margin-top:20px">Obrigado</h1>
+  <p style="color:var(--gray-l); margin:8px 0 24px">Perguntas são bem-vindas.</p>
+
+  <div class="cards" style="max-width:640px; margin:0 auto">
+    <div class="card" style="text-align:center">
+      <div class="card-title">Código Completo</div>
+      <p>github.com/raphaelcdobomeisel/<br>tcc-forecasting</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div class="card-title">Dataset</div>
+      <p>Rossmann Store Sales<br>Kaggle (público)</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div class="card-title">Stack</div>
+      <p>Python · Prophet · Streamlit · Plotly · pandas · scikit-learn</p>
+    </div>
+  </div>
+
+  <div style="margin-top:28px; color:#b0b6bf; font-size:0.5em">
+    <p>Raphael Costa de Oliveira Bomeisel · PADS · 2026</p>
+  </div>
+</section>
+
+
+</div><!-- /slides -->
+</div><!-- /reveal -->
+
+<!-- Reveal.js Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/notes/notes.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/zoom/zoom.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: false,
+    transition: 'fade',
+    transitionSpeed: 'fast',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    center: false,
+    width: 1200,
+    height: 720,
+    margin: 0.07,
+    plugins: [ RevealHighlight, RevealNotes, RevealZoom ]
+  });
+</script>
+</body>
+</html>
